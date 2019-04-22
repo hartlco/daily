@@ -27,7 +27,7 @@ class GHFlutter extends StatefulWidget {
 }
 
 class GHFlutterState extends State<GHFlutter> {
-  var _members = <Member>[];
+  var selectedDate = DateTime.now();
   final contentController = TextEditingController();
   final locationController = TextEditingController();
   final _biggerFont = const TextStyle(fontSize: 18.0);
@@ -66,9 +66,13 @@ class GHFlutterState extends State<GHFlutter> {
                   decoration: InputDecoration(hintText: "Content"),
                 ),
                 RaisedButton(
+                  child: Text(selectedDate.toString()),
+                  onPressed: _showDatePicker,
+                ),
+                RaisedButton(
                   child: const Text("Send"),
                   onPressed: _sendData,
-                )
+                ),
               ],
             ),
             padding: EdgeInsets.only(
@@ -84,14 +88,39 @@ class GHFlutterState extends State<GHFlutter> {
   _sendData() async {
     var postURL = Uri.http("localhost:8000", "/");
 
+    print(selectedDate.toUtc().toIso8601String());
+
     var dictionary = {
       "content": contentController.text,
-      "location": locationController.text
+      "location": locationController.text,
+      // Horrible hack to get timezone into the string quickly
+      "creation_date_string": "${selectedDate.toIso8601String()}-01:00"
     };
     var json = JSON.jsonEncode(dictionary);
 
     var response = await http.post(postURL,
         body: json, headers: {"Content-Type": "application/json"});
     print(response.body);
+  }
+
+  _showDatePicker() {
+    Future<DateTime> date = showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2018),
+      lastDate: DateTime(2030),
+      builder: (BuildContext context, Widget child) {
+        return Theme(
+          data: ThemeData.dark(),
+          child: child,
+        );
+      },
+    );
+
+    date.then((newDate) {
+      setState(() {
+        selectedDate = newDate;
+      });
+    });
   }
 }

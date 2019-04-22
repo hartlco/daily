@@ -13,6 +13,8 @@ use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
+use std::fs;
+use std::fs::OpenOptions;
 
 #[get("/")]
 fn index() -> &'static str {
@@ -21,7 +23,7 @@ fn index() -> &'static str {
 
 #[post("/", format = "application/json", data = "<input>")]
 fn add_entry(input: Json<Entry>) -> String {
-    save_entry(input.0);
+    save_entry(&input.0);
     return String::from("All good");
 }
 
@@ -43,37 +45,55 @@ fn now_date_string() -> String {
     return now.to_rfc3339().to_string();
 }
 
-fn save_entry(entry: Entry) {
-    let mut date = match DateTime::parse_from_rfc3339(&entry.creation_date_string) {
+fn save_entry(entry: &Entry) {
+    let date = match DateTime::parse_from_rfc3339(&entry.creation_date_string) {
         Err(why) => panic!("couldn't parse date: {}",
                            why.description()),
         Ok(date) => date
     };
 
-    let file_name = format!("out/{}.md", entry.creation_date_string);
+    let folder_name = format!("{}", date.format("out/%Y/%m"));
+    create_folder_if_needed(&folder_name);
+    let file_name = format!("{}/{}.md", folder_name, date.format("%d"));
     let header_date = date.format("%Y-%m-%d");
-    println!("{}", file_name);
     let path = Path::new(&file_name);
 
     let display = path.display();
 
-    let mut content = String::from(entry.content);
-    content = format!("# {} Ort: {}\n{}", header_date, entry.location, content);
+    let mut content = format!("{}", &entry.content);
 
-    // Open a file in write-only mode, returns `io::Result<File>`
-    let mut file = match File::create(&path) {
-        Err(why) => panic!("couldn't create {}: {}",
-                           display,
-                           why.description()),
-        Ok(file) => file,
-    };
+    let file_exists = path.exists();
 
-    // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
-    match file.write_all(content.as_bytes()) {
-        Err(why) => {
-            panic!("couldn't write to {}: {}", display,
-                                               why.description())
-        },
-        Ok(_) => println!("successfully wrote to {}", display),
+    if file_exists {
+        let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(path)
+        .unwrap();
+
+        if let Err(e) = writeln!(file, "\n\n# {} Ort: {}\n{}", header_date, entry.location, content) {
+            eprintln!("Couldn't write to file: {}", e);
+        }
+    } else {
+        content = format!("# {} Ort: {}\n{}", header_date, entry.location, content);
+
+        let mut file = match File::create(&path) {
+            Err(why) => panic!("couldn't create {}: {}",
+                            display,
+                            why.description()),
+            Ok(file) => file,
+        };
+
+        match file.write_all(content.as_bytes()) {
+            Err(why) => {
+                panic!("couldn't write to {}: {}", display,
+                                                why.description())
+            },
+            Ok(_) => println!("successfully wrote to {}", display),
+        }
     }
+}
+
+fn create_folder_if_needed(name: &String) {
+    fs::create_dir_all(name);
 }
