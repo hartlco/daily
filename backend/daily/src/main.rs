@@ -15,6 +15,8 @@ use std::fs::File;
 use std::path::Path;
 use std::fs;
 use std::fs::OpenOptions;
+use base64::{decode};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[get("/")]
 fn index() -> &'static str {
@@ -37,7 +39,8 @@ struct Entry {
     #[serde(default = "now_date_string")]
     creation_date_string: String,
     content: String,
-    location: String
+    location: String,
+    base_64_image: String
 }
 
 fn now_date_string() -> String {
@@ -52,9 +55,9 @@ fn save_entry(entry: &Entry) {
         Ok(date) => date
     };
 
-    let folder_name = format!("{}", date.format("out/%Y/%m"));
+    let folder_name = format!("{}", date.format("out/%Y"));
     create_folder_if_needed(&folder_name);
-    let file_name = format!("{}/{}.md", folder_name, date.format("%d"));
+    let file_name = format!("{}/{}.md", folder_name, date.format("%m"));
     let header_date = date.format("%Y-%m-%d");
     let path = Path::new(&file_name);
 
@@ -63,6 +66,36 @@ fn save_entry(entry: &Entry) {
     let mut content = format!("{}", &entry.content);
 
     let file_exists = path.exists();
+
+    if entry.base_64_image != "" {
+        let assets_name = "assets";
+        let asset_folder_name = format!("{}/{}", date.format("out/%Y/"), assets_name);
+        create_folder_if_needed(&asset_folder_name);
+        let decoded_image = decode(&entry.base_64_image).expect("base64 error");
+        let start = SystemTime::now();
+        let since_the_epoch = start.duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let image_name = format!("{}-{}.jpg", date.format("%Y-%m-%d"), since_the_epoch.as_secs());
+        let image_file_name = format!("{}/{}", asset_folder_name, image_name);
+        let image_path = Path::new(&image_file_name);
+
+        let mut file = match File::create(&image_path) {
+            Err(why) => panic!("couldn't create {}: {}",
+                            display,
+                            why.description()),
+            Ok(file) => file,
+        };
+
+        match file.write(&decoded_image) {
+            Err(why) => {
+                panic!("couldn't write to {}: {}", display,
+                                                why.description())
+            },
+            Ok(_) => println!("successfully wrote to {}", display),
+        }
+
+        content = content + "\n\n" + "/" + assets_name + "/" + &image_name + "\n";
+    }
 
     if file_exists {
         let mut file = OpenOptions::new()

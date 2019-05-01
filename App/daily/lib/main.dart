@@ -2,12 +2,11 @@
 // https://www.raywenderlich.com/116-getting-started-with-flutter
 
 import 'dart:convert' as JSON;
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-
 import 'strings.dart';
-import 'member.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart';
 
 void main() => runApp(DailyApp());
 
@@ -28,6 +27,7 @@ class GHFlutter extends StatefulWidget {
 
 class GHFlutterState extends State<GHFlutter> {
   var selectedDate = DateTime.now();
+  var base64Image = "";
   final contentController = TextEditingController();
   final locationController = TextEditingController();
   final _biggerFont = const TextStyle(fontSize: 18.0);
@@ -70,6 +70,10 @@ class GHFlutterState extends State<GHFlutter> {
                   onPressed: _showDatePicker,
                 ),
                 RaisedButton(
+                  child: const Text("Image"),
+                  onPressed: _getImage,
+                ),
+                RaisedButton(
                   child: const Text("Send"),
                   onPressed: _sendData,
                 ),
@@ -94,7 +98,8 @@ class GHFlutterState extends State<GHFlutter> {
       "content": contentController.text,
       "location": locationController.text,
       // Horrible hack to get timezone into the string quickly
-      "creation_date_string": "${selectedDate.toIso8601String()}-01:00"
+      "creation_date_string": "${selectedDate.toIso8601String()}-01:00",
+      "base_64_image": base64Image
     };
     var json = JSON.jsonEncode(dictionary);
 
@@ -121,6 +126,16 @@ class GHFlutterState extends State<GHFlutter> {
       setState(() {
         selectedDate = newDate;
       });
+    });
+  }
+
+  Future _getImage() async {
+    var image = await ImagePicker.pickImage(source: ImageSource.gallery);
+
+    setState(() {
+      var originalImage = decodeImage(image.readAsBytesSync());
+      var resizedImage = copyResize(originalImage, 1200);
+      base64Image = JSON.base64Encode(encodeJpg(resizedImage, quality: 85));
     });
   }
 }
