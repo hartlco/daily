@@ -5,8 +5,8 @@ import 'dart:convert' as JSON;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'strings.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart';
+import 'package:image_picker/image_picker.dart' as ImagePicker;
+import 'package:image/image.dart' as WebImage;
 
 void main() => runApp(DailyApp());
 
@@ -28,6 +28,9 @@ class GHFlutter extends StatefulWidget {
 class GHFlutterState extends State<GHFlutter> {
   var selectedDate = DateTime.now();
   var base64Image = "";
+  var selectedImage;
+  var isLoading = false;
+  var error = false;
   final contentController = TextEditingController();
   final locationController = TextEditingController();
   final _biggerFont = const TextStyle(fontSize: 18.0);
@@ -73,10 +76,16 @@ class GHFlutterState extends State<GHFlutter> {
                   child: const Text("Image"),
                   onPressed: _getImage,
                 ),
-                RaisedButton(
-                  child: const Text("Send"),
-                  onPressed: _sendData,
-                ),
+                selectedImage != null ? Image.file(selectedImage) : Center(child: Text("No Image selected")),
+                isLoading ? 
+                  Center(
+                    child: CircularProgressIndicator(),
+                  ) :
+                  RaisedButton(
+                    child: const Text("Send"),
+                    onPressed: _sendData,
+                  ),
+                error ? Center(child: Text("Error")) : Center(child: Text("All good"))
               ],
             ),
             padding: EdgeInsets.only(
@@ -85,11 +94,16 @@ class GHFlutterState extends State<GHFlutter> {
                 top: 12,
                 bottom: MediaQuery.of(context).viewInsets.bottom)),
       ),
+      floatingActionButton: FloatingActionButton(onPressed: _newEntry, child: Icon(Icons.add),),
       resizeToAvoidBottomInset: false,
     );
   }
 
   _sendData() async {
+    setState((){
+      isLoading = true;
+    });
+
     var postURL = Uri.http("localhost:8000", "/");
 
     print(selectedDate.toUtc().toIso8601String());
@@ -105,7 +119,11 @@ class GHFlutterState extends State<GHFlutter> {
 
     var response = await http.post(postURL,
         body: json, headers: {"Content-Type": "application/json"});
-    print(response.body);
+    
+    setState((){
+      error = response.statusCode != 200;
+      isLoading = false;
+    });
   }
 
   _showDatePicker() {
@@ -130,12 +148,23 @@ class GHFlutterState extends State<GHFlutter> {
   }
 
   Future _getImage() async {
-    var image = await ImagePicker.pickImage(source: ImageSource.gallery);
+    var image = await ImagePicker.ImagePicker.pickImage(source: ImagePicker.ImageSource.gallery);
+    selectedImage = image;
 
     setState(() {
-      var originalImage = decodeImage(image.readAsBytesSync());
-      var resizedImage = copyResize(originalImage, 1200);
-      base64Image = JSON.base64Encode(encodeJpg(resizedImage, quality: 85));
+      var originalImage = WebImage.decodeImage(image.readAsBytesSync());
+      var resizedImage = WebImage.copyResize(originalImage, 1200);
+      base64Image = JSON.base64Encode(WebImage.encodeJpg(resizedImage, quality: 85));
+    });
+  }
+
+  _newEntry() {
+    setState(() {
+      selectedDate = DateTime.now();
+      base64Image = "";
+      selectedImage = null;
+      isLoading = false;
+      error = false;
     });
   }
 }

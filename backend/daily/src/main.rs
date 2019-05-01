@@ -60,13 +60,45 @@ fn save_entry(entry: &Entry) {
     let file_name = format!("{}/{}.md", folder_name, date.format("%m"));
     let header_date = date.format("%Y-%m-%d");
     let path = Path::new(&file_name);
-
-    let display = path.display();
-
     let mut content = format!("{}", &entry.content);
 
     let file_exists = path.exists();
 
+    content = save_image_from(entry, content.clone(), date);
+
+    let header = format!("# {} Ort: {}\n", header_date, entry.location);
+    if file_exists {
+        let mut existing_content = fs::read_to_string(path).expect("Something went wrong reading the file");
+        if existing_content.contains(&header) {
+            let new_content = format!("{}{}\n", header, content);
+            existing_content = existing_content.replace(&header, &new_content);
+            let mut file = OpenOptions::new()
+            .write(true)
+            .open(path)
+            .unwrap();
+
+            writeln!(file, "{}", existing_content).expect("Inserting failed");
+        } else {
+            let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path)
+            .unwrap();
+
+            writeln!(file, "\n\n{}{}", header, content).expect("Appending failed");
+        }
+    } else {
+        content = format!("{}{}", header, content);
+        let mut file = File::create(&path).expect("Could not open file");
+        file.write_all(content.as_bytes()).expect("Could not write file");
+    }
+}
+
+fn create_folder_if_needed(name: &String) {
+    fs::create_dir_all(name).expect("Could not create folders");
+}
+
+fn save_image_from(entry: &Entry, content: String, date: DateTime<chrono::FixedOffset>) -> String {
     if entry.base_64_image != "" {
         let assets_name = "assets";
         let asset_folder_name = format!("{}/{}", date.format("out/%Y/"), assets_name);
@@ -79,54 +111,11 @@ fn save_entry(entry: &Entry) {
         let image_file_name = format!("{}/{}", asset_folder_name, image_name);
         let image_path = Path::new(&image_file_name);
 
-        let mut file = match File::create(&image_path) {
-            Err(why) => panic!("couldn't create {}: {}",
-                            display,
-                            why.description()),
-            Ok(file) => file,
-        };
+        let mut file = File::create(&image_path).expect("Could not create image file");
+        file.write(&decoded_image).expect("Could not write image");
 
-        match file.write(&decoded_image) {
-            Err(why) => {
-                panic!("couldn't write to {}: {}", display,
-                                                why.description())
-            },
-            Ok(_) => println!("successfully wrote to {}", display),
-        }
-
-        content = content + "\n\n" + "/" + assets_name + "/" + &image_name + "\n";
+        return content + "\n\n" + "/" + assets_name + "/" + &image_name + "\n";
     }
 
-    if file_exists {
-        let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open(path)
-        .unwrap();
-
-        if let Err(e) = writeln!(file, "\n\n# {} Ort: {}\n{}", header_date, entry.location, content) {
-            eprintln!("Couldn't write to file: {}", e);
-        }
-    } else {
-        content = format!("# {} Ort: {}\n{}", header_date, entry.location, content);
-
-        let mut file = match File::create(&path) {
-            Err(why) => panic!("couldn't create {}: {}",
-                            display,
-                            why.description()),
-            Ok(file) => file,
-        };
-
-        match file.write_all(content.as_bytes()) {
-            Err(why) => {
-                panic!("couldn't write to {}: {}", display,
-                                                why.description())
-            },
-            Ok(_) => println!("successfully wrote to {}", display),
-        }
-    }
-}
-
-fn create_folder_if_needed(name: &String) {
-    fs::create_dir_all(name);
+    return content;
 }
