@@ -104,7 +104,7 @@ class GHFlutterState extends State<GHFlutter> {
       isLoading = true;
     });
 
-    var postURL = Uri.http("localhost:8000", "/");
+    var postURL = Uri.http("192.168.10.26:9123", "/");
 
     print(selectedDate.toUtc().toIso8601String());
 
