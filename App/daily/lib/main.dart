@@ -166,6 +166,8 @@ class GHFlutterState extends State<GHFlutter> {
       selectedImage = null;
       isLoading = false;
       error = false;
+      locationController.text = "";
+      contentController.text = "";
     });
   }
 }
