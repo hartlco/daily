@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'strings.dart';
 import 'package:image_picker/image_picker.dart' as ImagePicker;
-import 'package:image/image.dart' as WebImage;
+import 'package:flutter_native_image/flutter_native_image.dart';
 
 void main() => runApp(DailyApp());
 
@@ -149,12 +149,13 @@ class GHFlutterState extends State<GHFlutter> {
 
   Future _getImage() async {
     var image = await ImagePicker.ImagePicker.pickImage(source: ImagePicker.ImageSource.gallery);
-    selectedImage = image;
+    ImageProperties properties = await FlutterNativeImage.getImageProperties(image.path);
+    var compressedFile = await FlutterNativeImage.compressImage(image.path, quality: 80, 
+    targetWidth: 1200, targetHeight: (properties.height * 1200 / properties.width).round());
 
     setState(() {
-      var originalImage = WebImage.decodeImage(image.readAsBytesSync());
-      var resizedImage = WebImage.copyResize(originalImage, 1200);
-      base64Image = JSON.base64Encode(WebImage.encodeJpg(resizedImage, quality: 85));
+      selectedImage = image;
+      base64Image = JSON.base64Encode(compressedFile.readAsBytesSync());
     });
   }
 
