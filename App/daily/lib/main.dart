@@ -33,7 +33,6 @@ class GHFlutterState extends State<GHFlutter> {
   var error = false;
   final contentController = TextEditingController();
   final locationController = TextEditingController();
-  final _biggerFont = const TextStyle(fontSize: 18.0);
 
   @override
   void initState() {
@@ -117,13 +116,20 @@ class GHFlutterState extends State<GHFlutter> {
     };
     var json = JSON.jsonEncode(dictionary);
 
-    var response = await http.post(postURL,
+    try {
+      var response = await http.post(postURL,
         body: json, headers: {"Content-Type": "application/json"});
     
-    setState((){
-      error = response.statusCode != 200;
-      isLoading = false;
-    });
+      setState((){
+        error = response.statusCode != 200;
+        isLoading = false;
+      });
+    } on Exception {
+      setState((){
+        error = true;
+        isLoading = false;
+      });
+    }
   }
 
   _showDatePicker() {
